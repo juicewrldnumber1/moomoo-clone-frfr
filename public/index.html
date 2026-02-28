@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MooMoo Clone</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="config.js"></script>
+  <style>
+    :root {
+      --primary: #e67e22;
+      --danger: #e74c3c;
+      --success: #2ecc71;
+      --bg-dark: rgba(10,15,30,0.92);
+      --border: rgba(255,255,255,0.12);
+      --font: 'Inter', sans-serif;
+      --title-font: 'Fredoka One', cursive;
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; }
+
+    body {
+      background:#1a1a2e;
+      font-family: var(--font);
+      overflow:hidden;
+      color:#fff;
+      user-select:none;
+    }
+
+    #game-canvas { display:block; cursor:crosshair; }
+
+    /* ── MENU ───────────────────────────────────────────────── */
+    #menu {
+      position:fixed; inset:0;
+      background: radial-gradient(ellipse at 30% 40%, #0f3460 0%, #16213e 60%, #0a0a1a 100%);
+      display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      z-index:100;
+    }
+
+    #menu-grass {
+      position:absolute; bottom:0; left:0; right:0; height:120px;
+      background: linear-gradient(180deg, transparent, #2d6a1f88, #1a4a12cc);
+      pointer-events:none;
+    }
+
+    #menu h1 {
+      font-family: var(--title-font);
+      font-size: clamp(52px,9vw,108px);
+      letter-spacing:2px;
+      background:linear-gradient(135deg,#e67e22,#f39c12,#e74c3c,#ff6b35);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+      background-clip:text;
+      filter:drop-shadow(0 0 30px rgba(230,126,34,0.6));
+      animation:titlePulse 3s ease-in-out infinite;
+      margin-bottom:6px;
+    }
+
+    @keyframes titlePulse {
+      0%,100%{filter:drop-shadow(0 0 20px rgba(230,126,34,0.5))}
+      50%{filter:drop-shadow(0 0 50px rgba(230,126,34,1))}
+    }
+
+    #menu p.sub {
+      font-size:15px; color:#94a3b8;
+      letter-spacing:5px; text-transform:uppercase; margin-bottom:44px;
+    }
+
+    .menu-card {
+      background:rgba(255,255,255,0.04);
+      border:1px solid var(--border);
+      border-radius:20px;
+      padding:36px 44px;
+      width:min(440px,92vw);
+      display:flex; flex-direction:column; gap:14px;
+      backdrop-filter:blur(24px);
+      box-shadow:0 24px 80px rgba(0,0,0,0.5);
+    }
+
+    #player-name-input {
+      background:rgba(255,255,255,0.07);
+      border:2px solid rgba(255,255,255,0.15);
+      border-radius:12px;
+      padding:16px 18px;
+      font-size:17px; color:#fff;
+      outline:none; width:100%;
+      transition:border-color 0.2s;
+    }
+    #player-name-input:focus { border-color:var(--primary); }
+    #player-name-input::placeholder { color:rgba(255,255,255,0.25); }
+
+    .btn-primary {
+      background:linear-gradient(135deg,#e67e22,#e74c3c);
+      border:none; border-radius:12px;
+      padding:18px; font-size:20px; font-weight:700;
+      color:#fff; cursor:pointer;
+      letter-spacing:3px; text-transform:uppercase;
+      transition:transform 0.12s, box-shadow 0.12s;
+      box-shadow:0 8px 28px rgba(230,126,34,0.4);
+    }
+    .btn-primary:hover { transform:translateY(-2px); box-shadow:0 14px 36px rgba(230,126,34,0.6); }
+    .btn-primary:active { transform:translateY(1px); }
+
+    .menu-controls {
+      color:rgba(255,255,255,0.4); font-size:12px;
+      text-align:center; line-height:2.2;
+    }
+    .menu-controls b { color:rgba(255,255,255,0.7); }
+
+    /* ── HUD ────────────────────────────────────────────────── */
+    #hud {
+      position:fixed; pointer-events:none; inset:0; z-index:10; display:none;
+    }
+
+    /* XP bar */
+    #xp-bar-wrap {
+      position:absolute; top:0; left:0; right:0; height:7px;
+      background:rgba(0,0,0,0.4);
+    }
+    #xp-bar {
+      height:100%;
+      background:linear-gradient(90deg,#9b59b6,#e91e63);
+      box-shadow:0 0 10px rgba(155,89,182,0.8);
+      transition:width 0.3s ease;
+    }
+
+    /* Age/Level badge */
+    #age-badge {
+      position:absolute; top:10px; left:50%; transform:translateX(-50%);
+      background:rgba(0,0,0,0.65);
+      border:1px solid rgba(255,255,255,0.12);
+      border-radius:20px; padding:4px 16px;
+      font-size:13px; font-weight:700; color:#c39bd3;
+      white-space:nowrap;
+    }
+
+    /* Minimap */
+    #minimap-wrap {
+      position:absolute; top:16px; left:16px;
+      pointer-events:none;
+    }
+    #minimap {
+      border-radius:12px;
+      border:2px solid rgba(255,255,255,0.15);
+      box-shadow:0 4px 20px rgba(0,0,0,0.5);
+      display:block;
+    }
+
+    /* Leaderboard */
+    #leaderboard {
+      position:absolute; top:190px; left:16px;
+      background:var(--bg-dark);
+      border:1px solid var(--border); border-radius:10px;
+      padding:10px 14px; min-width:164px;
+      pointer-events:none;
+    }
+    #leaderboard h3 {
+      font-size:10px; text-transform:uppercase;
+      letter-spacing:2px; color:var(--primary); margin-bottom:8px;
+    }
+    .lb-row {
+      font-size:12px; padding:3px 0;
+      color:rgba(255,255,255,0.75);
+      display:flex; justify-content:space-between; gap:12px;
+    }
+    .lb-row.you { color:#f39c12; font-weight:700; }
+
+    /* Resources */
+    #resources {
+      position:absolute; top:16px; right:16px;
+      display:flex; flex-direction:column; gap:5px;
+      pointer-events:none;
+    }
+    .res-row {
+      background:var(--bg-dark);
+      border:1px solid var(--border); border-radius:8px;
+      padding:6px 14px;
+      display:flex; align-items:center; gap:8px;
+      font-size:14px; font-weight:700;
+    }
+    .res-icon { font-size:17px; }
+
+    /* Kill feed */
+    #killfeed {
+      position:absolute; top:16px; right:200px;
+      display:flex; flex-direction:column; gap:4px;
+      pointer-events:none;
+    }
+    .kill-entry {
+      background:rgba(0,0,0,0.6);
+      border-radius:6px; padding:4px 10px;
+      font-size:12px;
+      animation:killFade 3.5s forwards;
+    }
+    @keyframes killFade { 0%{opacity:1} 70%{opacity:1} 100%{opacity:0} }
+
+    /* Bars */
+    #bars {
+      position:absolute; bottom:90px; left:50%; transform:translateX(-50%);
+      display:flex; flex-direction:column; gap:8px;
+      pointer-events:none; min-width:340px;
+    }
+    .bar-row { display:flex; align-items:center; gap:10px; }
+    .bar-icon { font-size:16px; width:22px; text-align:center; }
+    .bar-bg {
+      flex:1; height:18px;
+      background:rgba(0,0,0,0.5);
+      border-radius:9px; overflow:hidden;
+      border:1px solid rgba(255,255,255,0.08);
+    }
+    .bar-fill { height:100%; border-radius:9px; transition:width 0.12s ease; }
+    #hp-fill  { background:linear-gradient(90deg,#e74c3c,#c0392b); }
+    #food-fill{ background:linear-gradient(90deg,#f39c12,#e67e22); }
+    .bar-num {
+      font-size:12px; font-weight:700; width:36px;
+      text-align:right; color:rgba(255,255,255,0.65);
+    }
+
+    /* Hat & Accessory quick display */
+    #equip-display {
+      position:absolute; bottom:90px; right:16px;
+      display:flex; flex-direction:column; gap:6px;
+      pointer-events:all;
+    }
+    .equip-btn {
+      background:var(--bg-dark);
+      border:1px solid var(--border); border-radius:10px;
+      padding:6px 12px; cursor:pointer;
+      font-size:22px; text-align:center;
+      transition:border-color 0.15s;
+    }
+    .equip-btn:hover { border-color:var(--primary); }
+    .equip-label {
+      font-size:9px; text-transform:uppercase;
+      letter-spacing:1px; color:rgba(255,255,255,0.35);
+      text-align:center;
+    }
+
+    /* Toolbar */
+    #toolbar {
+      position:absolute; bottom:16px; left:50%; transform:translateX(-50%);
+      display:flex; gap:5px; pointer-events:all;
+    }
+    .slot {
+      width:58px; height:58px;
+      background:rgba(0,0,0,0.65);
+      border:2px solid rgba(255,255,255,0.12);
+      border-radius:10px;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      cursor:pointer; position:relative;
+      transition:border-color 0.1s, background 0.1s;
+    }
+    .slot:hover, .slot.active {
+      border-color:var(--primary);
+      background:rgba(230,126,34,0.18);
+    }
+    .slot.secondary-slot {
+      border-color:rgba(52,152,219,0.5);
+    }
+    .slot.secondary-slot.active { border-color:#3498db; background:rgba(52,152,219,0.18); }
+    .slot-emoji { font-size:26px; line-height:1; }
+    .slot-key {
+      position:absolute; top:3px; left:5px;
+      font-size:10px; color:rgba(255,255,255,0.35);
+    }
+    .slot-sub {
+      position:absolute; bottom:3px; left:0; right:0;
+      font-size:9px; text-align:center;
+      color:rgba(255,255,255,0.5);
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    .slot-locked { opacity:0.3; }
+
+    /* Age-up UI */
+    #ageup-panel {
+      position:fixed; inset:0;
+      background:rgba(0,0,0,0.75);
+      display:none; align-items:center; justify-content:center;
+      z-index:60; pointer-events:all;
+      backdrop-filter:blur(6px);
+    }
+    #ageup-inner {
+      background:linear-gradient(160deg,#0f2040,#1a0a30);
+      border:2px solid rgba(155,89,182,0.5);
+      border-radius:24px; padding:36px 40px;
+      width:min(600px,94vw);
+      box-shadow:0 0 60px rgba(155,89,182,0.3);
+    }
+    #ageup-inner h2 {
+      font-family:var(--title-font); font-size:32px;
+      color:#f1c40f; text-align:center; margin-bottom:6px;
+    }
+    #ageup-inner p.ageup-desc {
+      font-size:13px; text-align:center;
+      color:rgba(255,255,255,0.5); margin-bottom:24px;
+    }
+    #ageup-choices {
+      display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+      gap:12px;
+    }
+    .ageup-choice {
+      background:rgba(255,255,255,0.04);
+      border:2px solid rgba(255,255,255,0.1);
+      border-radius:14px; padding:16px 12px;
+      cursor:pointer; text-align:center;
+      transition:all 0.15s;
+    }
+    .ageup-choice:hover {
+      background:rgba(155,89,182,0.2);
+      border-color:#9b59b6;
+      transform:translateY(-2px);
+    }
+    .ageup-choice-emoji { font-size:32px; display:block; margin-bottom:8px; }
+    .ageup-choice-name { font-size:14px; font-weight:700; margin-bottom:4px; }
+    .ageup-choice-desc { font-size:11px; color:rgba(255,255,255,0.45); line-height:1.4; }
+    .ageup-choice.weapon { border-color:rgba(231,76,60,0.3); }
+    .ageup-choice.building { border-color:rgba(52,152,219,0.3); }
+    .ageup-choice.consumable { border-color:rgba(46,204,113,0.3); }
+
+    /* Hat Shop */
+    #hat-shop {
+      position:fixed; inset:0;
+      background:rgba(0,0,0,0.8);
+      display:none; align-items:center; justify-content:center;
+      z-index:50; pointer-events:all;
+      backdrop-filter:blur(8px);
+    }
+    #hat-shop-inner {
+      background:linear-gradient(160deg,#0f1a30,#1a0a20);
+      border:1px solid rgba(255,255,255,0.12);
+      border-radius:20px; padding:28px;
+      width:min(720px,96vw); max-height:90vh;
+      display:flex; flex-direction:column;
+      box-shadow:0 0 80px rgba(0,0,0,0.6);
+    }
+    .shop-header {
+      display:flex; align-items:center; justify-content:space-between;
+      margin-bottom:16px;
+    }
+    .shop-header h2 { font-family:var(--title-font); font-size:26px; color:#f1c40f; }
+    .shop-gold { font-size:16px; font-weight:700; color:#f1c40f; }
+    .shop-tabs {
+      display:flex; gap:8px; margin-bottom:16px;
+    }
+    .shop-tab {
+      padding:7px 16px; border-radius:8px; font-size:13px; font-weight:600;
+      cursor:pointer; border:1px solid var(--border);
+      background:transparent; color:rgba(255,255,255,0.5);
+      transition:all 0.15s;
+    }
+    .shop-tab.active, .shop-tab:hover {
+      background:rgba(241,196,15,0.15); border-color:#f1c40f; color:#fff;
+    }
+    #shop-grid {
+      display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr));
+      gap:10px; overflow-y:auto; padding-right:4px;
+    }
+    .shop-item {
+      background:rgba(255,255,255,0.03);
+      border:1px solid var(--border); border-radius:12px;
+      padding:14px 10px; cursor:pointer; text-align:center;
+      transition:all 0.15s;
+      position:relative;
+    }
+    .shop-item:hover { background:rgba(241,196,15,0.08); border-color:#f1c40f; }
+    .shop-item.owned { border-color:#2ecc71; }
+    .shop-item.equipped { border-color:#e67e22; background:rgba(230,126,34,0.12); }
+    .shop-item.cant-afford { opacity:0.4; cursor:not-allowed; }
+    .shop-item-emoji { font-size:30px; display:block; margin-bottom:8px; }
+    .shop-item-name { font-size:12px; font-weight:700; margin-bottom:4px; }
+    .shop-item-desc { font-size:10px; color:rgba(255,255,255,0.4); line-height:1.4; margin-bottom:8px; }
+    .shop-item-cost { font-size:13px; font-weight:700; color:#f1c40f; }
+    .shop-item-cost.owned { color:#2ecc71; }
+    .shop-badge {
+      position:absolute; top:5px; right:5px;
+      font-size:9px; padding:2px 5px; border-radius:4px;
+      font-weight:700; text-transform:uppercase;
+    }
+    .shop-badge.equipped { background:#e67e22; }
+    .shop-badge.owned { background:#2ecc71; }
+    .shop-badge.legendary { background:linear-gradient(90deg,#f1c40f,#e74c3c); }
+    #shop-close {
+      position:absolute; top:20px; right:20px;
+      background:none; border:none; color:rgba(255,255,255,0.4);
+      font-size:26px; cursor:pointer;
+    }
+
+    /* Poison overlay */
+    #poison-overlay {
+      position:fixed; inset:0;
+      background:rgba(142,68,173,0.15);
+      pointer-events:none; z-index:8;
+      display:none;
+      animation:poisonPulse 1s ease-in-out infinite;
+    }
+    @keyframes poisonPulse { 0%,100%{opacity:0.5} 50%{opacity:1} }
+
+    /* Damage vignette */
+    #dmg-vignette {
+      position:fixed; inset:0;
+      background:radial-gradient(ellipse, transparent 50%, rgba(231,76,60,0.6) 100%);
+      pointer-events:none; z-index:9;
+      opacity:0; transition:opacity 0.3s;
+    }
+
+    /* FPS */
+    #fps { position:absolute; bottom:8px; right:8px; font-size:11px; color:rgba(255,255,255,0.25); }
+
+    /* Chat */
+    #chat-wrap { position:absolute; bottom:160px; left:16px; width:300px; }
+    #chat-msgs { display:flex; flex-direction:column; gap:4px; margin-bottom:8px; }
+    .chat-msg {
+      background:rgba(0,0,0,0.5); border-radius:6px; padding:4px 10px;
+      font-size:13px; color:rgba(255,255,255,0.85);
+      animation:chatFade 8s forwards; max-width:280px; word-break:break-word;
+    }
+    @keyframes chatFade { 0%{opacity:1} 70%{opacity:1} 100%{opacity:0} }
+    #chat-input-wrap { display:none; pointer-events:all; gap:6px; }
+    #chat-input-wrap.show { display:flex; }
+    #chat-input {
+      flex:1; background:rgba(0,0,0,0.7);
+      border:1px solid rgba(255,255,255,0.2); border-radius:8px;
+      padding:8px 12px; font-size:13px; color:#fff; outline:none;
+    }
+    #chat-send {
+      background:var(--primary); border:none; border-radius:8px;
+      padding:8px 12px; color:#fff; cursor:pointer; font-weight:700;
+    }
+
+    /* Announce banner */
+    .announce-msg {
+      position:fixed; top:18%; left:50%; transform:translateX(-50%);
+      font-family:var(--title-font); font-size:30px; color:#f39c12;
+      text-shadow:0 4px 14px rgba(0,0,0,0.9);
+      pointer-events:none; z-index:40;
+      animation:announceFade 2.8s forwards;
+    }
+    @keyframes announceFade {
+      0%{opacity:0;transform:translateX(-50%) scale(0.8)}
+      15%{opacity:1;transform:translateX(-50%) scale(1.06)}
+      70%{opacity:1}
+      100%{opacity:0;transform:translateX(-50%) scale(1)}
+    }
+
+    /* Damage numbers */
+    .dmg-pop {
+      position:fixed; font-size:18px; font-weight:900;
+      text-shadow:0 2px 5px rgba(0,0,0,0.9);
+      pointer-events:none; z-index:35;
+      animation:dmgPop 0.9s forwards;
+    }
+    .dmg-pop.heal { color:#2ecc71; }
+    .dmg-pop.xp   { color:#9b59b6; font-size:14px; }
+    .dmg-pop.gold { color:#f1c40f; font-size:14px; }
+    .dmg-pop.dmg  { color:#e74c3c; }
+    @keyframes dmgPop {
+      0%{opacity:1;transform:translateY(0) scale(1.2)}
+      100%{opacity:0;transform:translateY(-52px) scale(0.7)}
+    }
+
+    /* Boss warning */
+    #boss-warn {
+      position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+      font-family:var(--title-font); font-size:48px; color:#e74c3c;
+      text-shadow:0 0 40px #e74c3c;
+      pointer-events:none; z-index:45;
+      display:none; text-align:center;
+      animation:bossShake 0.4s infinite;
+    }
+    @keyframes bossShake {
+      0%,100%{transform:translate(-50%,-50%)}
+      25%{transform:translate(-52%,-50%)}
+      75%{transform:translate(-48%,-50%)}
+    }
+
+    /* Death screen */
+    #death-screen {
+      position:fixed; inset:0;
+      background:rgba(0,0,0,0.88);
+      display:none; flex-direction:column;
+      align-items:center; justify-content:center;
+      z-index:70; pointer-events:all;
+    }
+    #death-screen h2 {
+      font-family:var(--title-font); font-size:72px; color:var(--danger);
+      margin-bottom:14px; animation:deathPop 0.5s;
+    }
+    @keyframes deathPop {
+      0%{transform:scale(0.5)} 70%{transform:scale(1.1)} 100%{transform:scale(1)}
+    }
+    #death-stats {
+      color:rgba(255,255,255,0.7); margin-bottom:32px;
+      font-size:16px; line-height:3; text-align:center;
+    }
+    .btn-respawn {
+      background:linear-gradient(135deg,var(--danger),#c0392b);
+      border:none; border-radius:14px; padding:16px 52px;
+      font-size:20px; font-weight:700; color:#fff; cursor:pointer;
+      letter-spacing:3px; text-transform:uppercase;
+      transition:transform 0.15s;
+    }
+    .btn-respawn:hover { transform:scale(1.06); }
+
+    ::-webkit-scrollbar { width:4px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.12); border-radius:2px; }
+  </style>
+</head>
+<body>
+
+<canvas id="game-canvas"></canvas>
+
+<!-- DAMAGE VIGNETTE -->
+<div id="dmg-vignette"></div>
+<div id="poison-overlay"></div>
+
+<!-- MENU -->
+<div id="menu">
+  <div id="menu-grass"></div>
+  <h1 id="menu-title">MooMoo Clone</h1>
+  <p class="sub" id="menu-subtitle">Survive. Gather. Dominate.</p>
+  <div class="menu-card">
+    <input id="player-name-input" type="text" placeholder="Enter your name..." maxlength="16" autocomplete="off">
+    <button class="btn-primary" id="btn-play">PLAY</button>
+    <div class="menu-controls">
+      <b>WASD</b> Move &nbsp;|&nbsp; <b>Click</b> Attack &nbsp;|&nbsp; <b>1-8</b> Slots<br>
+      <b>C</b> Shop &nbsp;|&nbsp; <b>T</b> Chat &nbsp;|&nbsp; <b>Q</b> Dash &nbsp;|&nbsp; <b>ESC</b> Close
+    </div>
+  </div>
+</div>
+
+<!-- HUD -->
+<div id="hud">
+  <div id="xp-bar-wrap"><div id="xp-bar" style="width:0%"></div></div>
+  <div id="age-badge">Age 1</div>
+
+  <div id="minimap-wrap">
+    <canvas id="minimap" width="160" height="160"></canvas>
+  </div>
+
+  <div id="leaderboard">
+    <h3>🏆 Leaderboard</h3>
+    <div id="lb-list"></div>
+  </div>
+
+  <div id="resources">
+    <div class="res-row"><span class="res-icon">🪵</span><span id="r-wood">0</span></div>
+    <div class="res-row"><span class="res-icon">🪨</span><span id="r-stone">0</span></div>
+    <div class="res-row"><span class="res-icon">🍖</span><span id="r-food">0</span></div>
+    <div class="res-row"><span class="res-icon">💰</span><span id="r-gold">0</span></div>
+  </div>
+
+  <div id="killfeed"></div>
+
+  <div id="bars">
+    <div class="bar-row">
+      <span class="bar-icon">❤️</span>
+      <div class="bar-bg"><div class="bar-fill" id="hp-fill" style="width:100%"></div></div>
+      <span class="bar-num" id="hp-num">100</span>
+    </div>
+    <div class="bar-row">
+      <span class="bar-icon">🍗</span>
+      <div class="bar-bg"><div class="bar-fill" id="food-fill" style="width:100%"></div></div>
+      <span class="bar-num" id="food-num">100</span>
+    </div>
+  </div>
+
+  <div id="equip-display" style="pointer-events:all">
+    <div class="equip-btn" id="hat-display" title="Click to open shop (C)">❌</div>
+    <div class="equip-label">HAT</div>
+    <div class="equip-btn" id="acc-display" title="Click to open shop (C)">❌</div>
+    <div class="equip-label">ACC</div>
+  </div>
+
+  <!-- TOOLBAR: 6 primary + 2 secondary -->
+  <div id="toolbar">
+    <div class="slot active" data-slot="0"><span class="slot-key">1</span><span class="slot-emoji">✊</span><span class="slot-sub">Fist</span></div>
+    <div class="slot" data-slot="1"><span class="slot-key">2</span><span class="slot-emoji" id="s1e">—</span><span class="slot-sub" id="s1n">Empty</span></div>
+    <div class="slot" data-slot="2"><span class="slot-key">3</span><span class="slot-emoji" id="s2e">—</span><span class="slot-sub" id="s2n">Empty</span></div>
+    <div class="slot" data-slot="3"><span class="slot-key">4</span><span class="slot-emoji" id="s3e">🔺</span><span class="slot-sub" id="s3n">Spike</span></div>
+    <div class="slot" data-slot="4"><span class="slot-key">5</span><span class="slot-emoji" id="s4e">🪵</span><span class="slot-sub" id="s4n">Wall</span></div>
+    <div class="slot" data-slot="5"><span class="slot-key">6</span><span class="slot-emoji" id="s5e">🌀</span><span class="slot-sub" id="s5n">Windmill</span></div>
+    <!-- Secondary weapon slot -->
+    <div class="slot secondary-slot" data-slot="6"><span class="slot-key">7</span><span class="slot-emoji" id="s6e">—</span><span class="slot-sub" id="s6n">2nd Weapon</span></div>
+    <!-- Consumable slot -->
+    <div class="slot" data-slot="7"><span class="slot-key">8</span><span class="slot-emoji" id="s7e">🍎</span><span class="slot-sub" id="s7n">Apple</span></div>
+  </div>
+
+  <div id="fps">60 FPS</div>
+
+  <!-- Chat -->
+  <div id="chat-wrap" style="pointer-events:none">
+    <div id="chat-msgs"></div>
+    <div id="chat-input-wrap">
+      <input id="chat-input" type="text" placeholder="Press Enter to send..." maxlength="60">
+      <button id="chat-send">→</button>
+    </div>
+  </div>
+</div>
+
+<!-- AGE UP PANEL -->
+<div id="ageup-panel">
+  <div id="ageup-inner">
+    <h2>⬆️ Age Up!</h2>
+    <p class="ageup-desc">Choose your reward:</p>
+    <div id="ageup-choices"></div>
+  </div>
+</div>
+
+<!-- HAT SHOP -->
+<div id="hat-shop">
+  <button id="shop-close" title="Close (ESC)">×</button>
+  <div id="hat-shop-inner">
+    <div class="shop-header">
+      <h2>🏪 Gold Shop</h2>
+      <span class="shop-gold">💰 <span id="shop-gold-display">0</span></span>
+    </div>
+    <div class="shop-tabs">
+      <button class="shop-tab active" data-tab="hats">🎩 Hats</button>
+      <button class="shop-tab" data-tab="accessories">💎 Accessories</button>
+    </div>
+    <div id="shop-grid"></div>
+  </div>
+</div>
+
+<!-- DEATH SCREEN -->
+<div id="death-screen">
+  <h2>💀 YOU DIED</h2>
+  <div id="death-stats"></div>
+  <button class="btn-respawn" id="btn-respawn">RESPAWN</button>
+</div>
+
+<!-- BOSS WARNING -->
+<div id="boss-warn"></div>
+
+<script src="game.js"></script>
+</body>
+</html>
